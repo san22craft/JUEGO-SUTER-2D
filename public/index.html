@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reino Shooter 2D — Arqueros, Magos y Espadachines</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+
+  <!-- HUD en partida -->
+  <div id="hud" class="hidden">
+    <div class="hud-top">
+      <div class="hud-top-left">
+        <div class="pill-row">
+          <div class="pill zone-badge" id="zone-label">🌲 Aldea del Reino</div>
+          <div class="pill">Sala: <strong id="hud-room">----</strong></div>
+          <button class="pill-btn" id="btn-copy-hud">🔗 Copiar enlace</button>
+          <button class="pill-btn" id="btn-role-switch">🎭 Cambiar Rol (R)</button>
+          <button class="pill-btn" id="btn-mute">🔊 Sonido</button>
+        </div>
+      </div>
+
+      <div class="hud-top-right">
+        <canvas id="minimap" width="200" height="150"></canvas>
+        <div id="killfeed"></div>
+      </div>
+    </div>
+
+    <div class="hud-bottom">
+      <div id="interact-prompt" class="hidden">[E] Abrir cofre (Botín de tu rol)</div>
+      <div class="bottom-bar">
+        <div class="vitals-card">
+          <div class="bar-wrap">
+            <div class="bar-label">
+              <span id="hud-role-name">Arquero</span>
+              <span id="hp-text">100 / 100</span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill bar-hp" id="hp-fill" style="width: 100%"></div>
+            </div>
+          </div>
+          <div class="bar-wrap">
+            <div class="bar-label">
+              <span>Escudo</span>
+              <span id="shield-text">30 / 30</span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill bar-shield" id="shield-fill" style="width: 100%"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="abilities-card">
+          <div class="ability-slot">
+            <div class="ability-key">Click Izq</div>
+            <div class="ability-name" id="ab-primary-name">Disparo</div>
+            <div class="ability-cd">Listo</div>
+          </div>
+          <div class="ability-slot">
+            <div class="ability-key">Click Der / Q</div>
+            <div class="ability-name" id="ab-special-name">Especial</div>
+            <div class="ability-cd" id="ab-special-cd">Listo</div>
+          </div>
+          <div class="ability-slot">
+            <div class="ability-key">Espacio</div>
+            <div class="ability-name" id="ab-dash-name">Evasión</div>
+            <div class="ability-cd" id="ab-dash-cd">Listo</div>
+          </div>
+          <div class="ability-slot">
+            <div class="ability-key">E</div>
+            <div class="ability-name">Cofre</div>
+            <div class="ability-cd">En casas</div>
+          </div>
+        </div>
+
+        <div class="gear-card" id="gear-slots"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Banner de muerte -->
+  <div id="death-banner" class="hidden">
+    💀 Has caído en combate<br />
+    <span style="font-size: 13px; font-weight: 500; color: #fecaca;">Reapareciendo en la aldea...</span>
+  </div>
+
+  <!-- Marcador (TAB) -->
+  <div id="scoreboard" class="hidden">
+    <h3>
+      <span>Tabla de la Sala <span id="sb-room"></span></span>
+      <span style="font-size: 12px; color: var(--muted);">Mantén TAB</span>
+    </h3>
+    <table class="score-table">
+      <thead>
+        <tr>
+          <th>Jugador</th>
+          <th>Rol</th>
+          <th>Bajas</th>
+          <th>Muertes</th>
+          <th>Botín</th>
+        </tr>
+      </thead>
+      <tbody id="score-body"></tbody>
+    </table>
+  </div>
+
+  <!-- Lobby Inicial / Cambio de Rol -->
+  <div id="lobby" class="overlay">
+    <div class="lobby-box">
+      <div class="lobby-header">
+        <div>
+          <h1>⚔️ Reino Shooter 2D</h1>
+          <p>Entra a las casas, abre cofres con botín exclusivo para tu clase y compite con tus amigos por enlace.</p>
+        </div>
+        <button class="btn-secondary" id="btn-copy-lobby">🔗 Copiar enlace de sala</button>
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label for="input-name">Tu nombre</label>
+          <input id="input-name" type="text" maxlength="16" placeholder="Ej. Sombra99" />
+        </div>
+        <div class="field">
+          <label for="input-room">Código de sala (compártelo)</label>
+          <input id="input-room" type="text" maxlength="8" placeholder="EJ: A4F2" />
+        </div>
+        <div class="field">
+          <label for="input-bots">Bots IA en la sala</label>
+          <select id="input-bots">
+            <option value="0">0 bots (solo amigos)</option>
+            <option value="2">2 bots IA</option>
+            <option value="3" selected>3 bots IA (recomendado)</option>
+            <option value="5">5 bots IA</option>
+            <option value="7">7 bots IA (caos)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="roles-grid" id="roles-grid">
+        <button class="role-card active" data-role="archer" type="button">
+          <div class="role-title">🏹 Arquero</div>
+          <div class="role-sub">Alta movilidad y largo alcance</div>
+          <div class="role-meta">
+            • <strong>Ataque:</strong> Flechas rápidas y precisas<br />
+            • <strong>Especial:</strong> Ráfaga Triple en abanico<br />
+            • <strong>Botín en casas:</strong> Arcos Élficos, Flechas Venenosas, Carcaj Ligero
+          </div>
+        </button>
+
+        <button class="role-card" data-role="mage" type="button">
+          <div class="role-title">🔮 Mago</div>
+          <div class="role-sub">Explosiones arcanas y control</div>
+          <div class="role-meta">
+            • <strong>Ataque:</strong> Orbes explosivos en área<br />
+            • <strong>Especial:</strong> Nova Glacial + Teletransporte<br />
+            • <strong>Botín en casas:</strong> Báculos, Grimorio de Hielo, Túnicas Rúnicas
+          </div>
+        </button>
+
+        <button class="role-card" data-role="swordsman" type="button">
+          <div class="role-title">⚔️ Espadachín</div>
+          <div class="role-sub">Cuerpo a cuerpo y desvío</div>
+          <div class="role-meta">
+            • <strong>Ataque:</strong> Tajo ancho que destruye flechas/orbes<br />
+            • <strong>Especial:</strong> Torbellino 360° + Carga con escudo<br />
+            • <strong>Botín en casas:</strong> Mandobles, Filo Carmesí, Coraza Templaria
+          </div>
+        </button>
+      </div>
+
+      <div class="lobby-actions">
+        <button class="btn-secondary" id="btn-new-room" type="button">🎲 Nueva sala aleatoria</button>
+        <button class="btn-primary" id="btn-play" type="button">🚀 Entrar a la Arena</button>
+      </div>
+
+      <div class="controls-tip">
+        <span><strong>Moverse:</strong> WASD / Flechas</span>
+        <span><strong>Apuntar y atacar:</strong> Ratón + Click Izq</span>
+        <span><strong>Habilidad especial:</strong> Click Der o Q</span>
+        <span><strong>Evasión / Blink:</strong> Espacio</span>
+        <span><strong>Entrar a casas y abrir cofres:</strong> E</span>
+        <span><strong>Marcador:</strong> Tab</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden">Enlace copiado al portapapeles</div>
+
+  <script src="shared.js"></script>
+  <script src="client.js"></script>
+</body>
+</html>
